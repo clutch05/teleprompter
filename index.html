@@ -31,6 +31,9 @@ h1{font-size:28px;line-height:1.1;margin:0;text-wrap:balance}
 .meta{margin:6px 0 0;color:var(--muted);font:500 13px var(--f-num);font-variant-numeric:tabular-nums}
 .rot{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.guiones{display:flex;flex-wrap:wrap;gap:8px}
+.guiones button{background:var(--panel);padding:10px 14px;border-radius:99px;font-size:15px}
+.guiones button[aria-pressed="true"]{background:var(--cue-bg);color:var(--cue);font-weight:700}
 .link{background:none;color:var(--muted);font-size:14px;padding:6px 0}
 textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;background:var(--panel);color:var(--fg);border:0;border-radius:14px;padding:16px;font:18px/1.5 var(--f-read)}
 .ajustes{display:flex;flex-direction:column;gap:14px;background:var(--panel);border-radius:14px;padding:16px}
@@ -95,6 +98,7 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
     <label for="guion" class="lbl">Guion</label>
     <button id="borrar" class="link" type="button">Borrar</button>
   </div>
+  <div class="guiones" id="guiones"></div>
   <textarea id="guion" spellcheck="false" placeholder="Pega aquí tu guion"></textarea>
   <div class="ajustes">
     <div class="aj"><label for="ppm">Velocidad</label><output id="o-ppm" for="ppm">140 ppm</output><input type="range" id="ppm" min="60" max="260" step="5"></div>
@@ -145,16 +149,27 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
 
 <script>
 const $ = id => document.getElementById(id);
-const GUION = `¿Tienes consultorio, eres médico especialista o atiendes pacientes? ¿Tienes despacho de arquitectura, empresa de mantenimiento industrial o cualquier negocio donde la gente busca tu servicio en Google?
+const GUIONES = [
+  { n: 'Anuncio 1 · Giros', t: `¿Tienes consultorio, eres médico especialista o atiendes pacientes? ¿Tienes despacho de arquitectura, empresa de mantenimiento industrial o cualquier negocio donde la gente busca tu servicio en Google?
 
-Si no tienes una página web, difícilmente te van a encontrar… y tu competencia te va a ganar ese cliente.
+Si no tienes una página web, difícilmente te van a encontrar. Tu competencia te va a ganar ese cliente.
 
-Nosotros te podemos ayudar a crear y diseñar tu página web, y la posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
+Nosotros te podemos ayudar a crear y diseñar tu página web. La posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
 
 Desde 1,719 pesos al mes.
 
-Y lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.`;
-const REV = '2'; // súbelo cuando Claude cargue un guion nuevo: lo pone una vez en el teléfono
+Lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.` },
+  { n: 'Anuncio 2 · Problema', t: `¿Sientes que tu negocio está flojo? ¿No te están llegando clientes nuevos? Puede que no sea tu servicio. Puede que la gente no te esté encontrando.
+
+Si no tienes una página web, difícilmente te van a encontrar. Tu competencia te va a ganar ese cliente.
+
+Nosotros te podemos ayudar a crear y diseñar tu página web. La posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
+
+Desde 1,719 pesos al mes.
+
+Lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.` }
+];
+const REV = '3'; // súbelo cuando Claude cargue guiones nuevos: pone el primero una vez en el teléfono
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : v; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('tp.' + k, v); } catch {} }
@@ -162,8 +177,14 @@ const store = {
 
 const guion = $('guion'), ppm = $('ppm'), tam = $('tam'), camOn = $('cam-on');
 const ap = $('apuntador'), vista = $('vista'), texto = $('texto'), cam = $('cam');
-if (store.get('rev', '') !== REV) { store.set('rev', REV); store.set('guion', GUION); }
-guion.value = store.get('guion', GUION);
+if (store.get('rev', '') !== REV) { store.set('rev', REV); store.set('guion', GUIONES[0].t); }
+guion.value = store.get('guion', GUIONES[0].t);
+for (const g of GUIONES) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = g.n;
+  b.onclick = () => { guion.value = g.t; store.set('guion', g.t); meta(); };
+  $('guiones').append(b);
+}
 ppm.value = store.get('ppm', 140);
 tam.value = store.get('tam', 40);
 camOn.checked = store.get('cam', '1') === '1';
@@ -180,6 +201,7 @@ function meta() {
   $('m-ppm').textContent = $('b-ppm').textContent = ppm.value;
   $('o-ppm').textContent = ppm.value + ' ppm';
   $('o-tam').textContent = tam.value + ' px';
+  $('guiones').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', guion.value === GUIONES[i].t));
 }
 guion.addEventListener('input', () => { store.set('guion', guion.value); meta(); });
 ppm.addEventListener('input', () => { store.set('ppm', ppm.value); meta(); });

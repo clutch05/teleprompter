@@ -30,10 +30,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 h1{font-size:28px;line-height:1.1;margin:0;text-wrap:balance}
 .meta{margin:6px 0 0;color:var(--muted);font:500 13px var(--f-num);font-variant-numeric:tabular-nums}
 .rot{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .guiones{display:flex;flex-wrap:wrap;gap:8px}
 .guiones button{background:var(--panel);padding:10px 14px;border-radius:99px;font-size:15px}
 .guiones button[aria-pressed="true"]{background:var(--cue-bg);color:var(--cue);font-weight:700}
+.guiones .nuevo{background:none;color:var(--cue);font-weight:700}
+.nombre{flex:1;min-width:0;background:none;border:0;color:var(--fg);font:700 18px var(--f-read);padding:6px 0}
 .link{background:none;color:var(--muted);font-size:14px;padding:6px 0}
 textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;background:var(--panel);color:var(--fg);border:0;border-radius:14px;padding:16px;font:18px/1.5 var(--f-read)}
 .ajustes{display:flex;flex-direction:column;gap:14px;background:var(--panel);border-radius:14px;padding:16px}
@@ -94,12 +95,12 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
     <h1>Teleprompter</h1>
     <p class="meta"><span id="m-pal">0</span> palabras · ≈ <span id="m-dur">0:00</span> a <span id="m-ppm">140</span> ppm</p>
   </header>
-  <div class="rot">
-    <label for="guion" class="lbl">Guion</label>
-    <button id="borrar" class="link" type="button">Borrar</button>
-  </div>
   <div class="guiones" id="guiones"></div>
-  <textarea id="guion" spellcheck="false" placeholder="Pega aquí tu guion"></textarea>
+  <div class="rot">
+    <input id="nombre" class="nombre" type="text" aria-label="Nombre del guion" placeholder="Nombre del guion" autocomplete="off">
+    <button id="borrar" class="link" type="button">Borrar guion</button>
+  </div>
+  <textarea id="guion" aria-label="Guion" spellcheck="false" placeholder="Pega aquí tu guion"></textarea>
   <div class="ajustes">
     <div class="aj"><label for="ppm">Velocidad</label><output id="o-ppm" for="ppm">140 ppm</output><input type="range" id="ppm" min="60" max="260" step="5"></div>
     <div class="aj"><label for="tam">Tamaño de letra</label><output id="o-tam" for="tam">40 px</output><input type="range" id="tam" min="26" max="72" step="2"></div>
@@ -169,7 +170,7 @@ Desde 1,719 pesos al mes.
 
 Lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.` }
 ];
-const REV = '3'; // súbelo cuando Claude cargue guiones nuevos: pone el primero una vez en el teléfono
+const REV = '4'; // súbelo cuando Claude cargue guiones nuevos: pone el primero una vez en el teléfono
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : v; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('tp.' + k, v); } catch {} }
@@ -177,14 +178,43 @@ const store = {
 
 const guion = $('guion'), ppm = $('ppm'), tam = $('tam'), camOn = $('cam-on');
 const ap = $('apuntador'), vista = $('vista'), texto = $('texto'), cam = $('cam');
-if (store.get('rev', '') !== REV) { store.set('rev', REV); store.set('guion', GUIONES[0].t); }
-guion.value = store.get('guion', GUIONES[0].t);
-for (const g of GUIONES) {
-  const b = document.createElement('button');
-  b.type = 'button'; b.textContent = g.n;
-  b.onclick = () => { guion.value = g.t; store.set('guion', g.t); meta(); };
-  $('guiones').append(b);
+// guiones: lista guardada en el teléfono; los de GUIONES entran una vez por REV
+const nuevoId = () => 'g' + Date.now() + Math.random().toString(36).slice(2, 6);
+let lista, activo;
+try { lista = JSON.parse(store.get('lista', 'null')); } catch { lista = null; }
+if (!Array.isArray(lista)) {
+  lista = [];
+  const viejo = store.get('guion', '');
+  if (viejo.trim() && !GUIONES.some(g => g.t === viejo)) lista.push({ id: nuevoId(), n: 'Mi guion', t: viejo });
 }
+activo = store.get('activo', '');
+if (store.get('rev', '') !== REV) {
+  store.set('rev', REV);
+  for (const g of GUIONES) if (!lista.some(x => x.n === g.n)) lista.push({ id: nuevoId(), n: g.n, t: g.t });
+  activo = (lista.find(x => x.n === GUIONES[0].n) || {}).id;
+}
+if (!lista.length) lista.push({ id: nuevoId(), n: 'Guion 1', t: '' });
+if (!lista.some(x => x.id === activo)) activo = lista[0].id;
+const actual = () => lista.find(x => x.id === activo);
+function guardar() { store.set('lista', JSON.stringify(lista)); store.set('activo', activo); }
+function pintaLista() {
+  const box = $('guiones'); box.textContent = '';
+  for (const g of lista) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = g.n.trim() || 'Sin nombre';
+    b.setAttribute('aria-pressed', g.id === activo);
+    b.onclick = () => { activo = g.id; abrir(); };
+    box.append(b);
+  }
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'nuevo'; b.textContent = '+ Nuevo';
+  b.onclick = () => {
+    const g = { id: nuevoId(), n: 'Guion ' + (lista.length + 1), t: '' };
+    lista.push(g); activo = g.id; abrir(); guion.focus();
+  };
+  box.append(b);
+}
+function abrir() { const g = actual(); guion.value = g.t; $('nombre').value = g.n; guardar(); pintaLista(); meta(); }
 ppm.value = store.get('ppm', 140);
 tam.value = store.get('tam', 40);
 camOn.checked = store.get('cam', '1') === '1';
@@ -201,14 +231,20 @@ function meta() {
   $('m-ppm').textContent = $('b-ppm').textContent = ppm.value;
   $('o-ppm').textContent = ppm.value + ' ppm';
   $('o-tam').textContent = tam.value + ' px';
-  $('guiones').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', guion.value === GUIONES[i].t));
 }
-guion.addEventListener('input', () => { store.set('guion', guion.value); meta(); });
+guion.addEventListener('input', () => { actual().t = guion.value; guardar(); meta(); });
+$('nombre').addEventListener('input', () => { actual().n = $('nombre').value; guardar(); pintaLista(); });
 ppm.addEventListener('input', () => { store.set('ppm', ppm.value); meta(); });
 tam.addEventListener('input', () => { store.set('tam', tam.value); meta(); });
 camOn.addEventListener('change', () => store.set('cam', camOn.checked ? '1' : '0'));
-$('borrar').onclick = () => { guion.value = ''; store.set('guion', ''); meta(); guion.focus(); };
-meta();
+$('borrar').onclick = () => {
+  const g = actual();
+  if (!confirm(`¿Borrar «${g.n.trim() || 'este guion'}»?`)) return;
+  lista = lista.filter(x => x !== g);
+  if (!lista.length) lista.push({ id: nuevoId(), n: 'Guion 1', t: '' });
+  activo = lista[0].id; abrir();
+};
+abrir();
 
 // --- apuntador ---
 let playing = false, scrolled = 0, max = 0, speed = 0, guideY = 0, last = 0, raf = 0;

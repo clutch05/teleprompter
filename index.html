@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0f12">
+<title>Teleprompter de bolsillo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: una columna para el guion; el apuntador ocupa toda la pantalla, texto arriba junto a la cámara frontal */
+:root{
+  --bg:#0d0f12; --panel:#171a1f; --boton:rgba(255,255,255,.14); --negro:#000;
+  --fg:#f3f1ec; --muted:#8d929b; --cue:#ffb340; --cue-bg:#3a2c12; --rec:#ff453a;
+  --shade:rgba(8,9,12,.74);
+  --f-read:"Atkinson Hyperlegible", -apple-system, system-ui, sans-serif;
+  --f-num:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-read);-webkit-text-size-adjust:100%}
+body.fijo{overflow:hidden}
+button{font:inherit;color:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--cue);outline-offset:2px}
+
+/* Guion */
+#editor{max-width:640px;margin-inline:auto;padding:calc(env(safe-area-inset-top,0px) + 20px) 16px calc(env(safe-area-inset-bottom,0px) + 32px);display:flex;flex-direction:column;gap:16px}
+h1{font-size:28px;line-height:1.1;margin:0;text-wrap:balance}
+.meta{margin:6px 0 0;color:var(--muted);font:500 13px var(--f-num);font-variant-numeric:tabular-nums}
+.rot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.chip{font-size:11px;letter-spacing:.04em;background:var(--cue-bg);color:var(--cue);padding:2px 8px;border-radius:99px;margin-left:8px;text-transform:none}
+.link{background:none;color:var(--muted);font-size:14px;padding:6px 0}
+textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;background:var(--panel);color:var(--fg);border:0;border-radius:14px;padding:16px;font:18px/1.5 var(--f-read)}
+.ajustes{display:flex;flex-direction:column;gap:14px;background:var(--panel);border-radius:14px;padding:16px}
+.aj{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.aj input{grid-column:1/-1;width:100%;accent-color:var(--cue)}
+.aj output{font:500 14px var(--f-num);color:var(--cue);font-variant-numeric:tabular-nums}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:16px}
+.sw input{accent-color:var(--cue);width:22px;height:22px}
+.go{width:100%;min-height:56px;border-radius:14px;background:var(--cue);color:var(--bg);font-weight:700;font-size:18px}
+.tip{margin:0;color:var(--muted);font-size:14px;text-align:center}
+
+/* Apuntador */
+#apuntador{position:fixed;inset:0;background:var(--negro);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.sombra{position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--shade) 0 48%,transparent 80%);display:none}
+.con-cam .sombra{display:block}
+#vista{position:absolute;inset:0;overflow:hidden;
+  -webkit-mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 72%,transparent 92%);
+          mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 72%,transparent 92%)}
+.con-cam #vista{
+  -webkit-mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 40%,transparent 56%);
+          mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 40%,transparent 56%)}
+#texto{max-width:900px;margin-inline:auto;padding:0 20px 0 30px;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.35;font-weight:700;will-change:transform;text-shadow:0 1px 3px var(--negro)}
+.guia{position:absolute;left:10px;width:0;height:0;border-block:9px solid transparent;border-left:13px solid var(--cue);transform:translateY(-50%);pointer-events:none}
+.arriba{position:absolute;inset:0 0 auto;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;font:500 13px var(--f-num)}
+#rec{display:flex;align-items:center;gap:6px;background:var(--shade);padding:4px 10px;border-radius:99px;font-variant-numeric:tabular-nums}
+#rec i{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:late 1s steps(2) infinite}
+@keyframes late{50%{opacity:.25}}
+#estado{margin-left:auto;background:var(--shade);color:var(--fg);padding:4px 10px;border-radius:99px;font-family:var(--f-read);font-size:14px}
+#cuenta{position:absolute;inset:0;display:grid;place-items:center;font:700 140px/1 var(--f-num);background:rgba(0,0,0,.35);pointer-events:none}
+.barra{position:absolute;inset:auto 0 0;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(transparent,var(--shade))}
+.grupo{display:flex;align-items:center;gap:6px}
+.ic{width:44px;height:44px;border-radius:50%;background:var(--boton);display:grid;place-items:center;font-size:22px;line-height:1}
+.ic svg{width:22px;height:22px}
+#b-ppm{min-width:38px;text-align:center;font:700 15px var(--f-num);font-variant-numeric:tabular-nums}
+#play{width:60px;height:60px;background:var(--fg);color:var(--negro)}
+#play .pausa,.sonando #play .tri{display:none}
+.sonando #play .pausa{display:block}
+#grabar{width:66px;height:66px;border-radius:50%;background:none;box-shadow:inset 0 0 0 4px var(--fg);display:grid;place-items:center}
+#grabar::after{content:"";width:50px;height:50px;border-radius:50%;background:var(--rec);transition:all .2s}
+.grabando #grabar::after{width:26px;height:26px;border-radius:6px}
+#aviso{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 48px);background:var(--panel);padding:12px 14px;border-radius:12px;font-size:15px;line-height:1.4;z-index:4}
+#toma{position:absolute;inset:0;z-index:5;background:var(--bg);display:flex;flex-direction:column;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+#rev{flex:1;min-height:0;width:100%;background:var(--negro);border-radius:14px;object-fit:contain}
+.toma-t{margin:0;font:500 14px var(--f-num);color:var(--muted)}
+.fila{display:flex;gap:8px}
+.sec{flex:1;min-height:50px;border-radius:14px;background:var(--panel);font-weight:700}
+.nota{margin:0;color:var(--muted);font-size:13px;text-align:center}
+@media (prefers-reduced-motion:reduce){#rec i{animation:none}#grabar::after{transition:none}}
+</style>
+</head>
+<body>
+<main id="editor">
+  <header>
+    <h1>Teleprompter</h1>
+    <p class="meta"><span id="m-pal">0</span> palabras · ≈ <span id="m-dur">0:00</span> a <span id="m-ppm">140</span> ppm</p>
+  </header>
+  <div class="rot">
+    <label for="guion" class="lbl">Guion <span id="ejemplo" class="chip">ejemplo</span></label>
+    <button id="borrar" class="link" type="button">Borrar</button>
+  </div>
+  <textarea id="guion" spellcheck="false" placeholder="Pega aquí tu guion"></textarea>
+  <div class="ajustes">
+    <div class="aj"><label for="ppm">Velocidad</label><output id="o-ppm" for="ppm">140 ppm</output><input type="range" id="ppm" min="60" max="260" step="5"></div>
+    <div class="aj"><label for="tam">Tamaño de letra</label><output id="o-tam" for="tam">40 px</output><input type="range" id="tam" min="26" max="72" step="2"></div>
+    <label class="sw" id="sw-cam" for="cam-on"><span>Grabar con la cámara frontal</span><input type="checkbox" id="cam-on" switch></label>
+  </div>
+  <button id="empezar" class="go" type="button">Empezar</button>
+  <p class="tip">Toca la pantalla para pausar · desliza para regresar</p>
+</main>
+
+<section id="apuntador" hidden>
+  <video id="cam" playsinline muted hidden></video>
+  <div class="sombra"></div>
+  <div id="vista"><div id="texto"></div></div>
+  <div class="guia" id="guia"></div>
+  <div class="arriba">
+    <span id="rec" hidden><i></i><b id="reloj">0:00</b></span>
+    <span id="estado" hidden></span>
+  </div>
+  <div id="cuenta" hidden></div>
+  <nav class="barra">
+    <div class="grupo">
+      <button id="salir" class="ic" aria-label="Salir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button id="reini" class="ic" aria-label="Volver al inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg></button>
+    </div>
+    <button id="play" class="ic" aria-label="Reproducir o pausar"><svg class="tri" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><svg class="pausa" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button>
+    <button id="grabar" aria-label="Grabar o detener" hidden></button>
+    <div class="grupo">
+      <button id="menos" class="ic" aria-label="Más lento">−</button>
+      <output id="b-ppm">140</output>
+      <button id="mas" class="ic" aria-label="Más rápido">+</button>
+    </div>
+  </nav>
+  <div id="aviso" hidden></div>
+  <div id="toma" hidden>
+    <video id="rev" playsinline controls></video>
+    <p class="toma-t">Toma <span id="t-n">1</span> · <span id="t-dur">0:00</span><span id="t-res"></span></p>
+    <button id="t-guardar" class="go" type="button">Guardar video</button>
+    <p class="nota">Se abre el menú de compartir: elige «Guardar video». Si no la guardas, se pierde al grabar otra.</p>
+    <div class="fila">
+      <button id="t-otra" class="sec" type="button">Otra toma</button>
+      <button id="t-salir" class="sec" type="button">Volver al guion</button>
+    </div>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const EJEMPLO = `¿Tu tienda en Shopify tiene visitas pero casi no vende?
+
+Casi nunca es el producto. Es la página.
+
+Si el botón de comprar está hasta abajo, si no dices cuánto cuesta el envío y tus reseñas no se ven, la gente se va con la competencia.
+
+En Myshopiguru rediseñamos tu tienda en un solo pago. Sin mensualidades.
+
+Mándame un mensaje con la palabra TIENDA y te digo qué le cambiaría a la tuya.`;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('tp.' + k, v); } catch {} }
+};
+
+const guion = $('guion'), ppm = $('ppm'), tam = $('tam'), camOn = $('cam-on');
+const ap = $('apuntador'), vista = $('vista'), texto = $('texto'), cam = $('cam');
+guion.value = store.get('guion', EJEMPLO);
+ppm.value = store.get('ppm', 140);
+tam.value = store.get('tam', 40);
+camOn.checked = store.get('cam', '1') === '1';
+const puedeGrabar = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+if (!puedeGrabar) { $('sw-cam').hidden = true; camOn.checked = false; }
+
+const palabras = s => (s.match(/\S+/g) || []).length;
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+function meta() {
+  const n = palabras(guion.value);
+  $('m-pal').textContent = n;
+  $('m-dur').textContent = mmss(n / ppm.value * 60);
+  $('m-ppm').textContent = $('b-ppm').textContent = ppm.value;
+  $('o-ppm').textContent = ppm.value + ' ppm';
+  $('o-tam').textContent = tam.value + ' px';
+  $('ejemplo').hidden = guion.value !== EJEMPLO;
+}
+guion.addEventListener('input', () => { store.set('guion', guion.value); meta(); });
+ppm.addEventListener('input', () => { store.set('ppm', ppm.value); meta(); });
+tam.addEventListener('input', () => { store.set('tam', tam.value); meta(); });
+camOn.addEventListener('change', () => store.set('cam', camOn.checked ? '1' : '0'));
+$('borrar').onclick = () => { guion.value = ''; store.set('guion', ''); meta(); guion.focus(); };
+meta();
+
+// --- apuntador ---
+let playing = false, scrolled = 0, max = 0, speed = 0, guideY = 0, last = 0, raf = 0;
+let conCam = false, stream = null, rec = null, chunks = [], recStart = 0, relojT = 0, cuentaT = 0, avisoT = 0, wake = null, toma = null, nToma = 0;
+const lh = () => tam.value * 1.35;
+
+function medir() {
+  guideY = vista.clientHeight * (conCam ? 0.2 : 0.32);
+  max = Math.max(0, texto.scrollHeight - lh());
+  // ppm → px/s: alto del texto repartido entre sus palabras
+  speed = texto.scrollHeight / Math.max(1, palabras(guion.value)) * ppm.value / 60;
+  $('guia').style.top = guideY + 'px';
+  scrolled = Math.min(scrolled, max);
+  pintar();
+}
+function pintar() { texto.style.transform = `translate3d(0,${guideY - lh() / 2 - scrolled}px,0)`; }
+function estado(msg) { $('estado').textContent = msg; $('estado').hidden = !msg; }
+function aviso(msg) { const a = $('aviso'); a.textContent = msg; a.hidden = false; clearTimeout(avisoT); avisoT = setTimeout(() => a.hidden = true, 6000); }
+
+function tick(t) {
+  scrolled += speed * Math.min(0.1, (t - last) / 1000);
+  last = t;
+  if (scrolled >= max) { scrolled = max; pintar(); pausar(); estado('Fin'); return; }
+  pintar();
+  raf = requestAnimationFrame(tick);
+}
+function play() {
+  if (playing) return;
+  if (scrolled >= max) scrolled = 0;
+  playing = true; last = performance.now(); raf = requestAnimationFrame(tick);
+  ap.classList.add('sonando'); estado('');
+}
+function pausar() {
+  playing = false; cancelAnimationFrame(raf);
+  ap.classList.remove('sonando');
+  estado(rec ? '' : 'Pausa · toca para seguir');
+}
+function cuenta(fn) {
+  clearTimeout(cuentaT); pausar(); estado('');
+  const el = $('cuenta'); let n = 3; el.textContent = n; el.hidden = false;
+  const paso = () => { if (--n <= 0) { el.hidden = true; fn(); } else { el.textContent = n; cuentaT = setTimeout(paso, 1000); } };
+  cuentaT = setTimeout(paso, 1000);
+}
+async function despierto() { try { wake = await navigator.wakeLock?.request('screen'); } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !ap.hidden) despierto(); });
+
+async function abrirCam() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+      audio: true
+    });
+    cam.srcObject = stream; cam.hidden = false;
+    await cam.play().catch(() => {});
+    return true;
+  } catch {
+    aviso('No se pudo abrir la cámara. Revisa en Ajustes › Safari › Cámara y Micrófono que diga «Preguntar» o «Permitir», y vuelve a intentar.');
+    return false;
+  }
+}
+
+$('empezar').onclick = async () => {
+  if (!palabras(guion.value)) { guion.focus(); return; }
+  texto.textContent = guion.value;
+  texto.style.fontSize = tam.value + 'px';
+  $('editor').hidden = true; ap.hidden = false; document.body.classList.add('fijo');
+  scrolled = 0; conCam = false;
+  if (camOn.checked) conCam = await abrirCam();
+  ap.classList.toggle('con-cam', conCam);
+  $('grabar').hidden = !conCam; $('play').hidden = conCam;
+  medir(); despierto();
+  if (conCam) estado('Botón rojo para grabar · toca el texto para ensayar');
+  else cuenta(play);
+};
+
+function tipo() {
+  return ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm']
+    .find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+}
+function reloj() { $('reloj').textContent = mmss((Date.now() - recStart) / 1000); }
+function grabar() {
+  if (rec) { pararRec(); return; }
+  scrolled = 0; pintar();
+  cuenta(() => {
+    const t = tipo(); chunks = [];
+    try { rec = new MediaRecorder(stream, t ? { mimeType: t, videoBitsPerSecond: 8e6 } : {}); }
+    catch { aviso('Este navegador no puede grabar video.'); return; }
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.start(1000);
+    recStart = Date.now(); reloj(); relojT = setInterval(reloj, 250);
+    ap.classList.add('grabando'); $('rec').hidden = false;
+    play();
+  });
+}
+function pararRec() {
+  const r = rec, dur = (Date.now() - recStart) / 1000;
+  rec = null; clearInterval(relojT);
+  ap.classList.remove('grabando'); $('rec').hidden = true; pausar();
+  r.onstop = () => mostrarToma(new Blob(chunks, { type: r.mimeType || 'video/mp4' }), dur);
+  r.stop();
+}
+function mostrarToma(blob, dur) {
+  if (toma) URL.revokeObjectURL(toma.url);
+  nToma++;
+  toma = { blob, url: URL.createObjectURL(blob), ext: blob.type.includes('mp4') ? 'mp4' : 'webm' };
+  const v = $('rev');
+  $('t-res').textContent = '';
+  v.onloadedmetadata = () => { if (v.videoWidth) $('t-res').textContent = ` · ${v.videoWidth}×${v.videoHeight}`; };
+  v.src = toma.url + '#t=0.1';
+  $('t-n').textContent = nToma; $('t-dur').textContent = mmss(dur);
+  $('toma').hidden = false;
+}
+$('t-guardar').onclick = async () => {
+  const f = new File([toma.blob], `toma-${nToma}.${toma.ext}`, { type: toma.blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [f] })) {
+    try { await navigator.share({ files: [f] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = toma.url; a.download = f.name;
+  document.body.append(a); a.click(); a.remove();
+};
+$('t-otra').onclick = () => { $('rev').pause(); $('toma').hidden = true; grabar(); };
+$('t-salir').onclick = () => salir();
+
+function salir() {
+  if (rec) { pararRec(); return; } // nunca tirar una toma en curso
+  clearTimeout(cuentaT); $('cuenta').hidden = true; pausar(); estado('');
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; cam.srcObject = null; cam.hidden = true;
+  $('rev').pause(); $('toma').hidden = true; $('aviso').hidden = true;
+  ap.hidden = true; $('editor').hidden = false; document.body.classList.remove('fijo');
+  if (wake) wake.release().catch(() => {}); wake = null;
+}
+function cambiaPpm(d) {
+  ppm.value = Math.min(260, Math.max(60, +ppm.value + d));
+  store.set('ppm', ppm.value); meta(); medir();
+}
+$('salir').onclick = salir;
+$('reini').onclick = () => { scrolled = 0; pintar(); if (!playing) estado('Pausa · toca para seguir'); };
+$('play').onclick = () => playing ? pausar() : play();
+$('grabar').onclick = grabar;
+$('menos').onclick = () => cambiaPpm(-10);
+$('mas').onclick = () => cambiaPpm(10);
+
+// tocar = pausa/sigue · arrastrar = moverse en el guion
+let tocando = false, y0 = 0, arrastra = false, eraPlay = false;
+vista.addEventListener('pointerdown', e => {
+  if (!$('cuenta').hidden) return;
+  tocando = true; arrastra = false; y0 = e.clientY; eraPlay = playing;
+  vista.setPointerCapture(e.pointerId);
+});
+vista.addEventListener('pointermove', e => {
+  if (!tocando) return;
+  const dy = e.clientY - y0;
+  if (!arrastra && Math.abs(dy) > 8) { arrastra = true; playing = false; cancelAnimationFrame(raf); }
+  if (arrastra) { scrolled = Math.min(max, Math.max(0, scrolled - dy)); y0 = e.clientY; pintar(); }
+});
+vista.addEventListener('pointerup', () => {
+  if (!tocando) return;
+  tocando = false;
+  if (arrastra) { if (eraPlay) play(); }
+  else if (playing) pausar(); else play();
+});
+vista.addEventListener('pointercancel', () => { tocando = false; });
+window.addEventListener('resize', () => { if (!ap.hidden) medir(); });
+if (document.fonts) document.fonts.ready.then(() => { if (!ap.hidden) medir(); });
+</script>
+</body>
+</html>

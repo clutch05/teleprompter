@@ -151,26 +151,28 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
 <script>
 const $ = id => document.getElementById(id);
 const GUIONES = [
-  { n: 'Anuncio 1 · Giros', t: `¿Tienes consultorio, eres médico especialista o atiendes pacientes? ¿Tienes despacho de arquitectura, empresa de mantenimiento industrial o cualquier negocio donde la gente busca tu servicio en Google?
+  { n: 'Anuncio 1 · Giros', t: `Si tienes un consultorio, eres médico especialista, o quizás tienes un despacho de abogados, una empresa de mantenimiento industrial o cualquier negocio donde la gente busca tu servicio en Google, y no tienes una página web en 2026, estás perdiendo clientes con tu competencia, que quizás sí la tiene.
 
-Si no tienes una página web, difícilmente te van a encontrar. Tu competencia te va a ganar ese cliente.
-
-Nosotros te podemos ayudar a crear y diseñar tu página web. La posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
+Nosotros te conseguimos más clientes a través de una página web: te la diseñamos y la posicionamos en Google Maps y en ChatGPT para que te encuentren a ti. Lo hacemos todo por ti, tú no te tienes que preocupar de nada.
 
 Desde 1,719 pesos al mes.
 
-Lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.` },
-  { n: 'Anuncio 2 · Problema', t: `¿Sientes que tu negocio está flojo? ¿No te están llegando clientes nuevos? Puede que no sea tu servicio. Puede que la gente no te esté encontrando.
+Lo mejor: antes de que contrates, te mostramos cómo se vería tu página.
 
-Si no tienes una página web, difícilmente te van a encontrar. Tu competencia te va a ganar ese cliente.
+Agenda una llamada abajo y en 30 minutos la ves.` },
+  { n: 'Anuncio 2 · Problema', t: `Si sientes que tu negocio está flojo y no te están llegando clientes nuevos, a lo mejor no es tu servicio. Es que la gente no te está encontrando.
 
-Nosotros te podemos ayudar a crear y diseñar tu página web. La posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
+En 2026, si no tienes una página web, estás perdiendo clientes con tu competencia, que quizás sí la tiene.
+
+Nosotros te conseguimos más clientes a través de una página web: te la diseñamos y la posicionamos en Google Maps y en ChatGPT para que te encuentren a ti. Lo hacemos todo por ti, tú no te tienes que preocupar de nada.
 
 Desde 1,719 pesos al mes.
 
-Lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.` }
+Lo mejor: antes de que contrates, te mostramos cómo se vería tu página.
+
+Agenda una llamada abajo y en 30 minutos la ves.` }
 ];
-const REV = '4'; // súbelo cuando Claude cargue guiones nuevos: pone el primero una vez en el teléfono
+const REV = '5'; // súbelo cuando Claude cargue guiones nuevos: pone el primero una vez en el teléfono
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : v; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('tp.' + k, v); } catch {} }
@@ -178,7 +180,7 @@ const store = {
 
 const guion = $('guion'), ppm = $('ppm'), tam = $('tam'), camOn = $('cam-on');
 const ap = $('apuntador'), vista = $('vista'), texto = $('texto'), cam = $('cam');
-// guiones: lista guardada en el teléfono; los de GUIONES entran una vez por REV
+// guiones: lista guardada en el teléfono; los de GUIONES entran (o se actualizan por nombre) una vez por REV
 const nuevoId = () => 'g' + Date.now() + Math.random().toString(36).slice(2, 6);
 let lista, activo;
 try { lista = JSON.parse(store.get('lista', 'null')); } catch { lista = null; }
@@ -190,7 +192,10 @@ if (!Array.isArray(lista)) {
 activo = store.get('activo', '');
 if (store.get('rev', '') !== REV) {
   store.set('rev', REV);
-  for (const g of GUIONES) if (!lista.some(x => x.n === g.n)) lista.push({ id: nuevoId(), n: g.n, t: g.t });
+  for (const g of GUIONES) {
+    const x = lista.find(x => x.n === g.n);
+    if (x) x.t = g.t; else lista.push({ id: nuevoId(), n: g.n, t: g.t });
+  }
   activo = (lista.find(x => x.n === GUIONES[0].n) || {}).id;
 }
 if (!lista.length) lista.push({ id: nuevoId(), n: 'Guion 1', t: '' });

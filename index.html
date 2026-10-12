@@ -50,19 +50,23 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
 #apuntador{position:fixed;inset:0;background:var(--negro);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .sombra{position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--shade) 0 48%,transparent 80%);display:none}
-.con-cam .sombra{display:block}
+.con-cam .sombra{display:block;background:linear-gradient(var(--shade) 0 calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 3.6),transparent calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 5.5))}
 #vista{position:absolute;inset:0;overflow:hidden;
   -webkit-mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 72%,transparent 92%);
           mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 72%,transparent 92%)}
 .con-cam #vista{
-  -webkit-mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 40%,transparent 56%);
-          mask-image:linear-gradient(transparent 0,#000 calc(env(safe-area-inset-top,0px) + 48px),#000 40%,transparent 56%)}
+  -webkit-mask-image:linear-gradient(transparent calc(env(safe-area-inset-top,0px) - 2px),#000 calc(env(safe-area-inset-top,0px) + 6px),#000 calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 3),transparent calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 4.3));
+          mask-image:linear-gradient(transparent calc(env(safe-area-inset-top,0px) - 2px),#000 calc(env(safe-area-inset-top,0px) + 6px),#000 calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 3),transparent calc(env(safe-area-inset-top,0px) + var(--lh,54px) * 4.3))}
+.con-cam #texto{padding-inline:24px;text-align:center}
+.con-cam .arriba{inset:auto 0 calc(env(safe-area-inset-bottom,0px) + 96px);padding-top:0}
+#sa{position:absolute;top:env(safe-area-inset-top,0px);left:0;width:0;height:0}
 #texto{max-width:900px;margin-inline:auto;padding:0 20px 0 30px;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.35;font-weight:700;will-change:transform;text-shadow:0 1px 3px var(--negro)}
 .guia{position:absolute;left:10px;width:0;height:0;border-block:9px solid transparent;border-left:13px solid var(--cue);transform:translateY(-50%);pointer-events:none}
 .arriba{position:absolute;inset:0 0 auto;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;font:500 13px var(--f-num)}
 #rec{display:flex;align-items:center;gap:6px;background:var(--shade);padding:4px 10px;border-radius:99px;font-variant-numeric:tabular-nums}
 #rec i{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:late 1s steps(2) infinite}
 @keyframes late{50%{opacity:.25}}
+#calidad,#espejo{white-space:nowrap}
 #calidad{background:var(--shade);padding:4px 10px;border-radius:99px;color:var(--cue)}
 #espejo{pointer-events:auto;background:var(--shade);padding:6px 12px;border-radius:99px;font:500 13px var(--f-num)}
 .sin-espejo #cam{transform:none}
@@ -113,6 +117,7 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
 <section id="apuntador" hidden>
   <video id="cam" playsinline muted hidden></video>
   <div class="sombra"></div>
+  <div id="sa" aria-hidden="true"></div>
   <div id="vista"><div id="texto"></div></div>
   <div class="guia" id="guia"></div>
   <div class="arriba">
@@ -258,7 +263,9 @@ let espejo = store.get('espejo', '1') === '1';
 const lh = () => tam.value * 1.35;
 
 function medir() {
-  guideY = vista.clientHeight * (conCam ? 0.2 : 0.32);
+  ap.style.setProperty('--lh', lh() + 'px');
+  // con cámara: primer renglón pegado a la cámara para que no se note que lees
+  guideY = conCam ? $('sa').offsetTop + lh() * 0.6 + 4 : vista.clientHeight * 0.32;
   max = Math.max(0, texto.scrollHeight - lh());
   // ppm → px/s: alto del texto repartido entre sus palabras
   speed = texto.scrollHeight / Math.max(1, palabras(guion.value)) * ppm.value / 60;

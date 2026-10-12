@@ -31,7 +31,6 @@ h1{font-size:28px;line-height:1.1;margin:0;text-wrap:balance}
 .meta{margin:6px 0 0;color:var(--muted);font:500 13px var(--f-num);font-variant-numeric:tabular-nums}
 .rot{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.chip{font-size:11px;letter-spacing:.04em;background:var(--cue-bg);color:var(--cue);padding:2px 8px;border-radius:99px;margin-left:8px;text-transform:none}
 .link{background:none;color:var(--muted);font-size:14px;padding:6px 0}
 textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;background:var(--panel);color:var(--fg);border:0;border-radius:14px;padding:16px;font:18px/1.5 var(--f-read)}
 .ajustes{display:flex;flex-direction:column;gap:14px;background:var(--panel);border-radius:14px;padding:16px}
@@ -93,7 +92,7 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
     <p class="meta"><span id="m-pal">0</span> palabras · ≈ <span id="m-dur">0:00</span> a <span id="m-ppm">140</span> ppm</p>
   </header>
   <div class="rot">
-    <label for="guion" class="lbl">Guion <span id="ejemplo" class="chip">ejemplo</span></label>
+    <label for="guion" class="lbl">Guion</label>
     <button id="borrar" class="link" type="button">Borrar</button>
   </div>
   <textarea id="guion" spellcheck="false" placeholder="Pega aquí tu guion"></textarea>
@@ -146,15 +145,16 @@ textarea{width:100%;box-sizing:border-box;min-height:42vh;resize:vertical;backgr
 
 <script>
 const $ = id => document.getElementById(id);
-const EJEMPLO = `¿Tu tienda en Shopify tiene visitas pero casi no vende?
+const GUION = `¿Tienes consultorio, eres médico especialista o atiendes pacientes? ¿Tienes despacho de arquitectura, empresa de mantenimiento industrial o cualquier negocio donde la gente busca tu servicio en Google?
 
-Casi nunca es el producto. Es la página.
+Si no tienes una página web, difícilmente te van a encontrar… y tu competencia te va a ganar ese cliente.
 
-Si el botón de comprar está hasta abajo, si no dices cuánto cuesta el envío y tus reseñas no se ven, la gente se va con la competencia.
+Nosotros te podemos ayudar a crear y diseñar tu página web, y la posicionamos en Google Maps y en ChatGPT para que te encuentren a ti.
 
-En Myshopiguru rediseñamos tu tienda en un solo pago. Sin mensualidades.
+Desde 1,719 pesos al mes.
 
-Mándame un mensaje con la palabra TIENDA y te digo qué le cambiaría a la tuya.`;
+Y lo mejor: te la enseñamos ya hecha antes de que contrates. Agenda una llamada abajo para verla.`;
+const REV = '2'; // súbelo cuando Claude cargue un guion nuevo: lo pone una vez en el teléfono
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : v; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('tp.' + k, v); } catch {} }
@@ -162,7 +162,8 @@ const store = {
 
 const guion = $('guion'), ppm = $('ppm'), tam = $('tam'), camOn = $('cam-on');
 const ap = $('apuntador'), vista = $('vista'), texto = $('texto'), cam = $('cam');
-guion.value = store.get('guion', EJEMPLO);
+if (store.get('rev', '') !== REV) { store.set('rev', REV); store.set('guion', GUION); }
+guion.value = store.get('guion', GUION);
 ppm.value = store.get('ppm', 140);
 tam.value = store.get('tam', 40);
 camOn.checked = store.get('cam', '1') === '1';
@@ -179,7 +180,6 @@ function meta() {
   $('m-ppm').textContent = $('b-ppm').textContent = ppm.value;
   $('o-ppm').textContent = ppm.value + ' ppm';
   $('o-tam').textContent = tam.value + ' px';
-  $('ejemplo').hidden = guion.value !== EJEMPLO;
 }
 guion.addEventListener('input', () => { store.set('guion', guion.value); meta(); });
 ppm.addEventListener('input', () => { store.set('ppm', ppm.value); meta(); });
